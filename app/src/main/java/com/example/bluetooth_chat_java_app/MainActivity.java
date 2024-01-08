@@ -4,6 +4,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -27,6 +30,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.bluetooth_chat_java_app.Controller.ChatController;
+import com.example.bluetooth_chat_java_app.Fragment.Chat_Fragment;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -157,19 +161,50 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         @Override
-        protected void onPostExecute(Boolean isConnected) {
+        protected void onPostExecute(Boolean isConnected)   {
             super.onPostExecute(isConnected);
             progressBar.setVisibility(View.GONE);
+            displayChatFragment();
             if (isConnected) {
                 Toast.makeText(MainActivity.this, "Connected to device", Toast.LENGTH_SHORT).show();
                 // You're now connected and can perform further actions if needed
+
             } else {
                 Toast.makeText(MainActivity.this, "Failed to connect to device", Toast.LENGTH_SHORT).show();
+                disconnectFromDevice();
             }
         }
 
     }
+    private void displayChatFragment() {
+        Chat_Fragment chatFragment = new Chat_Fragment();
+        FragmentManager fragmentManager = getSupportFragmentManager();
+        FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
+        fragmentTransaction.replace(R.id.fragmentContainer, chatFragment); // R.id.fragmentContainer is the container in your layout to replace with the fragment
+        fragmentTransaction.addToBackStack(null); // Optional: Add transaction to back stack for back navigation
+        fragmentTransaction.commit();
+    }
+    private void disconnectFromDevice() {
+        // Perform disconnection logic here
 
+        if (mSocket != null) {
+            try {
+                mSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            mSocket = null;
+        }
+
+        // Check if ChatFragment is currently visible
+        FragmentManager fragmentManager = getSupportFragmentManager();
+        Fragment chatFragment = fragmentManager.findFragmentById(R.id.fragmentContainer);
+
+        if (chatFragment instanceof Chat_Fragment) {
+            // ChatFragment is visible, remove it
+            fragmentManager.beginTransaction().remove(chatFragment).commit();
+        }
+    }
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
