@@ -7,11 +7,13 @@ import androidx.core.app.ActivityCompat;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -20,16 +22,20 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.bluetooth_chat_java_app.Controller.ChatController;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Set;
+import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
     private BluetoothAdapter mAdapter;
+    private BluetoothSocket mSocket;
     private static final int REQUEST_ENABLE_CODE = 1;
     private static final int REQUEST_BLUETOOTH_PERMISSION = 2;
     private ArrayAdapter<String> mDiscoveredDevicesArrayAdapter;
@@ -42,11 +48,12 @@ public class MainActivity extends AppCompatActivity {
     public static final int MESSAGE_DEVICE_OBJECT = 4;
     public static final int MESSAGE_TOAST = 5;
     public static final String DEVICE_OBJECT = "device_name";
+    private ProgressBar progressBar;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
+        progressBar = findViewById(R.id.progressBar);
 
         chatController = new ChatController(this,new Handler());
         mAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -88,23 +95,81 @@ public class MainActivity extends AppCompatActivity {
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                String info = ((TextView) view).getText().toString();
-                String address = info.substring(info.length() - 17);
-
-                Toast.makeText(MainActivity.this, "Item CLicked "+address, Toast.LENGTH_SHORT).show();
-                connectToDevice(address);
+                String info = mArrayAdapter.getItem(position);
+                if (info != null){
+                    String address = info.substring(info.length() - 17);
+                    Toast.makeText(MainActivity.this, "Item CLicked "+address, Toast.LENGTH_SHORT).show();
+                   // connectToDevice(address);
+                    ConnectTask connectTask = new ConnectTask();
+                    connectTask.execute(address);
+                }
 
             }
         });
 
     }
     private void connectToDevice(String deviceAddress) {
+
+
+
+
         mAdapter.cancelDiscovery();
         BluetoothDevice device = mAdapter.getRemoteDevice(deviceAddress);
 
-        Toast.makeText(this, "Connect", Toast.LENGTH_SHORT).show();
-        chatController.connect(device);
+        try {
+            UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"); // Standard UUID for SPP (Serial Port Profile)
+            mSocket = device.createRfcommSocketToServiceRecord(uuid);
+            mSocket.connect();
+
+            if (mSocket.isConnected()) {
+                // Connection successful
+                Toast.makeText(this, "Connected to device: " + device.getName(), Toast.LENGTH_SHORT).show();
+                // You're now connected and can perform further actions if needed
+            }
+        } catch (IOException e) {
+            // Connection failed
+            Toast.makeText(this, "Failed to connect to device: " + device.getName(), Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
+        }
     }
+
+    private class ConnectTask extends AsyncTask<String,Void,Boolean>{
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            progressBar.setVisibility(View.VISIBLE);
+        }
+
+        @Override
+        protected Boolean doInBackground(String... strings) {
+            String deviceAddress = strings[0];
+            BluetoothDevice device = mAdapter.getRemoteDevice(deviceAddress);
+
+            try {
+                UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+                mSocket = device.createRfcommSocketToServiceRecord(uuid);
+                mSocket.connect();
+                return mSocket.isConnected();
+            } catch (IOException e) {
+                e.printStackTrace();
+                return false;
+            }
+        }
+        @Override
+        protected void onPostExecute(Boolean isConnected) {
+            super.onPostExecute(isConnected);
+            progressBar.setVisibility(View.GONE);
+            if (isConnected) {
+                Toast.makeText(MainActivity.this, "Connected to device", Toast.LENGTH_SHORT).show();
+                // You're now connected and can perform further actions if needed
+            } else {
+                Toast.makeText(MainActivity.this, "Failed to connect to device", Toast.LENGTH_SHORT).show();
+            }
+        }
+
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
