@@ -13,12 +13,17 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
+
+import com.example.bluetooth_chat_java_app.Controller.ChatController;
 
 import java.util.ArrayList;
 import java.util.Set;
@@ -30,13 +35,20 @@ public class MainActivity extends AppCompatActivity {
     private ArrayAdapter<String> mDiscoveredDevicesArrayAdapter;
     private ArrayAdapter<String> mArrayAdapter;
     private Button scanBtn;
+    private ChatController chatController;
+    public static final int MESSAGE_STATE_CHANGE = 1;
+    public static final int MESSAGE_READ = 2;
+    public static final int MESSAGE_WRITE = 3;
+    public static final int MESSAGE_DEVICE_OBJECT = 4;
+    public static final int MESSAGE_TOAST = 5;
+    public static final String DEVICE_OBJECT = "device_name";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        scanBtn = findViewById(R.id.scanBtn);
 
+        chatController = new ChatController(this,new Handler());
         mAdapter = BluetoothAdapter.getDefaultAdapter();
 
         if (mAdapter == null) {
@@ -71,11 +83,28 @@ public class MainActivity extends AppCompatActivity {
         mArrayAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, devicesList);
         ListView listView = findViewById(R.id.listView);
 
-
-
         listView.setAdapter(mArrayAdapter);
-    }
 
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                String info = ((TextView) view).getText().toString();
+                String address = info.substring(info.length() - 17);
+
+                Toast.makeText(MainActivity.this, "Item CLicked "+address, Toast.LENGTH_SHORT).show();
+                connectToDevice(address);
+
+            }
+        });
+
+    }
+    private void connectToDevice(String deviceAddress) {
+        mAdapter.cancelDiscovery();
+        BluetoothDevice device = mAdapter.getRemoteDevice(deviceAddress);
+
+        Toast.makeText(this, "Connect", Toast.LENGTH_SHORT).show();
+        chatController.connect(device);
+    }
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
