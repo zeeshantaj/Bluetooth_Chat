@@ -25,6 +25,6 @@ public class Chat_Fragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
 
-
     }
 }
+
