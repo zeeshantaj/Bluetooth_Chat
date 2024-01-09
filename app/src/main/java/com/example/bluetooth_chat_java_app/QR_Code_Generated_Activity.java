@@ -19,6 +19,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.bluetooth_chat_java_app.Chat.ChatActivity;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
 import com.google.zxing.common.BitMatrix;
@@ -41,6 +42,8 @@ public class QR_Code_Generated_Activity extends AppCompatActivity {
     private TextView ipTxt;
     private Button scanBtn;
     private static final int CAMERA_PERMISSION_REQUEST_CODE = 200;
+    private WifiP2pManager.ConnectionInfoListener connectionInfoListener;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -83,30 +86,20 @@ public class QR_Code_Generated_Activity extends AppCompatActivity {
                 // Handle the scanned data as needed (e.g., process the QR code content)
                 Toast.makeText(this, "Scanned: " + scannedData, Toast.LENGTH_SHORT).show();
 
-                WifiP2pManager.ConnectionInfoListener connectionInfoListener = new WifiP2pManager.ConnectionInfoListener() {
-                    @Override
-                    public void onConnectionInfoAvailable(WifiP2pInfo wifiP2pInfo) {
-
-                        if (wifiP2pInfo.groupFormed && wifiP2pInfo.isGroupOwner) {
-                            // The current device is the group owner (server)
-                            // Check if the client is connected (assuming the other device is the client)
-                            if (wifiP2pInfo.groupOwnerAddress != null) {
-                                // Check if the client (other device) is connected by checking the group owner's IP
-                                InetAddress clientIpAddress = wifiP2pInfo.groupOwnerAddress;
-                                // Perform actions based on the connection status
-                            }
-                        } else if (wifiP2pInfo.groupFormed) {
-                            // The current device is the client
-                            Toast.makeText(QR_Code_Generated_Activity.this, "Connected", Toast.LENGTH_SHORT).show();
-                            // Perform actions based on the connection status
-                        }
-                    }
-                };
 
             }
         } else {
             super.onActivityResult(requestCode, resultCode, data);
         }
+    }
+
+    private void handleConnectionEstablished(WifiP2pInfo wifiP2pInfo) {
+        // Perform actions or start ChatActivity indicating the connection is established
+        Intent chatIntent = new Intent(QR_Code_Generated_Activity.this, ChatActivity.class);
+        chatIntent.putExtra("connectionInfo", wifiP2pInfo); // Pass connection info if needed
+        startActivity(chatIntent);
+
+        Toast.makeText(QR_Code_Generated_Activity.this, "Connected", Toast.LENGTH_SHORT).show();
     }
 
     @Override
