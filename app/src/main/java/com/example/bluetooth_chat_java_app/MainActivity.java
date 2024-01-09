@@ -76,6 +76,7 @@ public class MainActivity extends AppCompatActivity {
                 showPairedDevices();
             }
         }
+
     }
     private void showPairedDevices() {
         Set<BluetoothDevice> pairedDevices = mAdapter.getBondedDevices();
@@ -164,10 +165,11 @@ public class MainActivity extends AppCompatActivity {
         protected void onPostExecute(Boolean isConnected)   {
             super.onPostExecute(isConnected);
             progressBar.setVisibility(View.GONE);
-            displayChatFragment();
+
             if (isConnected) {
                 Toast.makeText(MainActivity.this, "Connected to device", Toast.LENGTH_SHORT).show();
                 // You're now connected and can perform further actions if needed
+                displayChatFragment();
 
             } else {
                 Toast.makeText(MainActivity.this, "Failed to connect to device", Toast.LENGTH_SHORT).show();
