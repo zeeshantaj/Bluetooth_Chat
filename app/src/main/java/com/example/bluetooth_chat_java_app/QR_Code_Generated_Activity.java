@@ -97,6 +97,7 @@ public class QR_Code_Generated_Activity extends AppCompatActivity {
                             }
                         } else if (wifiP2pInfo.groupFormed) {
                             // The current device is the client
+                            Toast.makeText(QR_Code_Generated_Activity.this, "Connected", Toast.LENGTH_SHORT).show();
                             // Perform actions based on the connection status
                         }
                     }
