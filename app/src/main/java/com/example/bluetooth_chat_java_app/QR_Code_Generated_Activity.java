@@ -9,6 +9,8 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.net.wifi.WifiManager;
+import android.net.wifi.p2p.WifiP2pInfo;
+import android.net.wifi.p2p.WifiP2pManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
@@ -80,6 +82,26 @@ public class QR_Code_Generated_Activity extends AppCompatActivity {
                 String scannedData = result.getContents();
                 // Handle the scanned data as needed (e.g., process the QR code content)
                 Toast.makeText(this, "Scanned: " + scannedData, Toast.LENGTH_SHORT).show();
+
+                WifiP2pManager.ConnectionInfoListener connectionInfoListener = new WifiP2pManager.ConnectionInfoListener() {
+                    @Override
+                    public void onConnectionInfoAvailable(WifiP2pInfo wifiP2pInfo) {
+
+                        if (wifiP2pInfo.groupFormed && wifiP2pInfo.isGroupOwner) {
+                            // The current device is the group owner (server)
+                            // Check if the client is connected (assuming the other device is the client)
+                            if (wifiP2pInfo.groupOwnerAddress != null) {
+                                // Check if the client (other device) is connected by checking the group owner's IP
+                                InetAddress clientIpAddress = wifiP2pInfo.groupOwnerAddress;
+                                // Perform actions based on the connection status
+                            }
+                        } else if (wifiP2pInfo.groupFormed) {
+                            // The current device is the client
+                            // Perform actions based on the connection status
+                        }
+                    }
+                };
+
             }
         } else {
             super.onActivityResult(requestCode, resultCode, data);
@@ -105,6 +127,7 @@ public class QR_Code_Generated_Activity extends AppCompatActivity {
         IntentIntegrator integrator = new IntentIntegrator(this);
         integrator.setPrompt("Scan a QR code");
         integrator.setOrientationLocked(false);
+        integrator.setBeepEnabled(true);
         integrator.initiateScan();
     }
 
