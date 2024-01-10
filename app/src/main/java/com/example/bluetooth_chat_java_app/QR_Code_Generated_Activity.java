@@ -5,7 +5,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.net.wifi.WifiManager;
@@ -19,6 +22,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.bluetooth_chat_java_app.Broadcast.ConnectionBroadcast;
 import com.example.bluetooth_chat_java_app.Chat.ChatActivity;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
@@ -42,8 +46,10 @@ public class QR_Code_Generated_Activity extends AppCompatActivity {
     private TextView ipTxt;
     private Button scanBtn;
     private static final int CAMERA_PERMISSION_REQUEST_CODE = 200;
-    private WifiP2pManager.ConnectionInfoListener connectionInfoListener;
-
+    private WifiP2pManager mManager;
+    private WifiP2pManager.Channel mChannel;
+    private BroadcastReceiver mReceiver;
+    private IntentFilter mIntentFilter;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -57,20 +63,27 @@ public class QR_Code_Generated_Activity extends AppCompatActivity {
 
         scanBtn = findViewById(R.id.qrScanBtn);
         scanBtn.setOnClickListener(v -> {
-
             if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA)
                     != PackageManager.PERMISSION_GRANTED) {
-                // Request camera permission if not granted
                 ActivityCompat.requestPermissions(this,
                         new String[]{android.Manifest.permission.CAMERA},
                         CAMERA_PERMISSION_REQUEST_CODE);
             } else {
-                // Start QR code scanning
                 startQRScanner();
             }
-
-
         });
+
+        mManager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
+        mChannel = mManager.initialize(this, getMainLooper(), null);
+
+        // Create an intent filter for Wi-Fi Direct actions
+        mIntentFilter = new IntentFilter();
+        mIntentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
+
+        // Register the broadcast receiver for Wi-Fi Direct actions
+        mReceiver = new ConnectionBroadcast();
+        registerReceiver(mReceiver, mIntentFilter);
+
 
     }
     @Override
@@ -93,14 +106,7 @@ public class QR_Code_Generated_Activity extends AppCompatActivity {
         }
     }
 
-    private void handleConnectionEstablished(WifiP2pInfo wifiP2pInfo) {
-        // Perform actions or start ChatActivity indicating the connection is established
-        Intent chatIntent = new Intent(QR_Code_Generated_Activity.this, ChatActivity.class);
-        chatIntent.putExtra("connectionInfo", wifiP2pInfo); // Pass connection info if needed
-        startActivity(chatIntent);
 
-        Toast.makeText(QR_Code_Generated_Activity.this, "Connected", Toast.LENGTH_SHORT).show();
-    }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
