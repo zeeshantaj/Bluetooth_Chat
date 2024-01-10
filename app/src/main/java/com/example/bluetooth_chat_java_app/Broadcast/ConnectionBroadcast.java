@@ -16,6 +16,9 @@ public class ConnectionBroadcast extends BroadcastReceiver {
             // Respond to Wi-Fi Direct connection changes
             handleConnectionChanges(intent);
         }
+        else {
+            Log.e("OnReceive","OnReceive action not equal ");
+        }
         Log.e("OnReceive","OnReceive");
     }
     private void handleConnectionChanges(Intent intent) {
@@ -26,6 +29,9 @@ public class ConnectionBroadcast extends BroadcastReceiver {
             // Implement logic to receive messages or signals from Device A
             // For example: use sockets to receive messages from Device A
             // Display a notification or perform actions based on the received message
+        }
+        else {
+            Log.e("OnReceive not Connected ","OnReceive not Connected");
         }
     }
 }
