@@ -50,16 +50,23 @@ public class MainActivity extends AppCompatActivity {
     private ProgressBar progressBar;
     private Button btScanBtn;
     private List<BluetoothDevice> deviceList;
+    private ListView listViewScan;
+    private ArrayList arrayList;
+    private ArrayAdapter<String> arrayAdapter;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         progressBar = findViewById(R.id.progressBar);
         btScanBtn = findViewById(R.id.btScanBTn);
-
-        deviceList = new ArrayList<>();
-
+        listViewScan = findViewById(R.id.listViewScan);
         mAdapter = BluetoothAdapter.getDefaultAdapter();
+
+
+        arrayList = new ArrayList();
+        deviceList = new ArrayList<>();
+        arrayAdapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1,arrayList);
+        listViewScan.setAdapter(arrayAdapter);
 
         if (mAdapter == null) {
             // Device doesn't support Bluetooth
@@ -78,12 +85,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // Register broadcast receiver and start discovery
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(BluetoothDevice.ACTION_FOUND);
-        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
-        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
-        registerReceiver(receiver, filter);
-        mAdapter.startDiscovery();
+
 
 
 //        ActivityResultLauncher<String[]> locationPermissionRequest =
@@ -119,28 +121,54 @@ public class MainActivity extends AppCompatActivity {
 //                );
         btScanBtn.setOnClickListener(v -> {
             // Check and request permissions before starting a new scan
+            Toast.makeText(this, "scan start", Toast.LENGTH_SHORT).show();
             discoverDevice();
-            Toast.makeText(this, "clk", Toast.LENGTH_SHORT).show();
+
         });
 //
 
     }
 
     private void discoverDevice() {
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(BluetoothDevice.ACTION_FOUND);
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+        registerReceiver(receiver, filter);
         mAdapter.startDiscovery();
     }
 
-    private final BroadcastReceiver receiver = new BroadcastReceiver() {
+    private BroadcastReceiver receiver = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
+
             if (BluetoothDevice.ACTION_FOUND.equals(action)) {
                 // Discovery has found a device. Get the BluetoothDevice
                 // object and its info from the Intent.
+                arrayList.clear();
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 String deviceName = device.getName();
+                String deviceAddress = device.getAddress();
+
+                arrayList.add(deviceName+ "\n" + deviceAddress);
+                arrayAdapter.notifyDataSetChanged();
                 Log.e("MyApp","device available"+deviceName);
                 String deviceHardwareAddress = device.getAddress(); // MAC address
             }
+            listViewScan.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                @Override
+                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                    String info = arrayAdapter.getItem(position);
+                    if (info != null){
+                        String address = info.substring(info.length() - 17);
+                        Toast.makeText(MainActivity.this, "Item CLicked "+address, Toast.LENGTH_SHORT).show();
+                        // connectToDevice(address);
+//                        ConnectTask connectTask = new ConnectTask();
+//                        connectTask.execute(address);
+                    }
+
+                }
+            });
         }
     };
 
@@ -222,15 +250,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
-    private void updateUI() {
-        ArrayList<String> deviceNameList = new ArrayList<>();
-        for (BluetoothDevice device : deviceList) {
-            deviceNameList.add(device.getName() + "\n" + device.getAddress());
-        }
-        mArrayAdapter.clear();
-        mArrayAdapter.addAll(deviceNameList);
-        mArrayAdapter.notifyDataSetChanged();
-    }
+
     private void connectToDevice(String deviceAddress) {
 
 
