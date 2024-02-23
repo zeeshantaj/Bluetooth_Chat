@@ -1,5 +1,9 @@
 package com.example.bluetooth_chat_java_app;
 
+import static android.bluetooth.BluetoothAdapter.STATE_CONNECTED;
+import static kotlinx.coroutines.flow.FlowKt.filter;
+import static kotlinx.coroutines.flow.FlowKt.subscribeOn;
+
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
@@ -11,8 +15,10 @@ import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -23,6 +29,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Message;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
@@ -31,11 +38,17 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.bluetooth_chat_java_app.Controller.ChatController;
+import com.harrysoft.androidbluetoothserial.BluetoothManager;
+import com.harrysoft.androidbluetoothserial.BluetoothSerialDevice;
+import com.harrysoft.androidbluetoothserial.SimpleBluetoothDeviceInterface;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -53,6 +66,20 @@ public class MainActivity extends AppCompatActivity {
     private ListView listViewScan;
     private ArrayList arrayList;
     private ArrayAdapter<String> arrayAdapter;
+    private SimpleBluetoothDeviceInterface deviceInterface;
+    BluetoothManager bluetoothManager ;
+    private static final UUID MY_UUID = UUID.fromString("318c6089-985c-4773-b7ca-4c6130e4209e");
+    private static final String APP_NAME = "Testing_and_Practice_Features_App";
+    static final int STATE_LISTENING = 1;
+
+    static final int STATE_CONNECTING = 2;
+
+    static final int STATE_CONNECTED = 3;
+
+    static final int STATE_CONNECTION_FAILED = 4;
+    static final int STATE_MESSAGE_RECEIVED = 5;
+    private TextView status;
+    BluetoothDevice[] bluetoothDevices;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -60,8 +87,16 @@ public class MainActivity extends AppCompatActivity {
         progressBar = findViewById(R.id.progressBar);
         btScanBtn = findViewById(R.id.btScanBTn);
         listViewScan = findViewById(R.id.listViewScan);
+        status = findViewById(R.id.status);
         mAdapter = BluetoothAdapter.getDefaultAdapter();
 
+        bluetoothManager = BluetoothManager.getInstance();
+
+        if (bluetoothManager == null) {
+            // Bluetooth unavailable on this device :( tell the user
+            Toast.makeText(this, "Bluetooth not available.", Toast.LENGTH_LONG).show(); // Replace context with your context instance.
+            finish();
+        }
 
         arrayList = new ArrayList();
         deviceList = new ArrayList<>();
@@ -183,11 +218,20 @@ public class MainActivity extends AppCompatActivity {
         Set<BluetoothDevice> pairedDevices = mAdapter.getBondedDevices();
         ArrayList<String> devicesList = new ArrayList<>();
 
+
+        bluetoothDevices = new BluetoothDevice[deviceList.size()];
+
+        int index = 0;
+
         if (pairedDevices.size() > 0) {
             for (BluetoothDevice device : pairedDevices) {
                 String deviceName = device.getName();
                 String deviceAddress = device.getAddress();
                 devicesList.add(deviceName + "\n" + deviceAddress);
+
+                bluetoothDevices[index] =device;
+                index++;
+
             }
         } else {
             devicesList.add("No paired devices found");
@@ -205,15 +249,137 @@ public class MainActivity extends AppCompatActivity {
                 if (info != null){
                     String address = info.substring(info.length() - 17);
                     Toast.makeText(MainActivity.this, "Item CLicked "+address, Toast.LENGTH_SHORT).show();
-                   // connectToDevice(address);
-                    ConnectTask connectTask = new ConnectTask();
-                    connectTask.execute(address);
+
+                    ServerClass serverClass = new ServerClass();
+                    serverClass.start();
+
+
+                    ClientClass clientClass = new ClientClass(bluetoothDevices[position]);
+                    clientClass.start();
+                    status.setText("connecting");
+
+
+                    // connectToDevice(address);
+//                    ConnectTask connectTask = new ConnectTask();
+//                    connectTask.execute(address);
                 }
 
             }
         });
     }
+    private class ServerClass extends Thread {
 
+        private BluetoothServerSocket serverSocket;
+
+        @SuppressLint("MissingPermission")
+        public ServerClass() {
+
+            try {
+                serverSocket = mAdapter.listenUsingRfcommWithServiceRecord(APP_NAME, MY_UUID);
+
+                // IOException yakalama
+            } catch (IOException e) {
+
+                e.printStackTrace();
+            }
+        }
+
+        public void run() {
+
+            BluetoothSocket socket = null;
+
+            while (true) {
+
+                try {
+                    Message message = Message.obtain();
+
+                        message.what = STATE_CONNECTING;
+
+                        handler.sendMessage(message);
+
+                        socket = serverSocket.accept();
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+
+                    Message message = Message.obtain();
+
+                    message.what = STATE_CONNECTION_FAILED;
+
+                    handler.sendMessage(message);
+                }
+
+                if (socket != null) {
+
+                    Message message = Message.obtain();
+
+                    message.what = STATE_CONNECTED;
+
+                    handler.sendMessage(message);
+
+//                    sendReceive = new SendReceive(socket);
+//
+//                    sendReceive.start();
+
+                    break;
+                }
+            }
+        }
+    }
+    private class ClientClass extends Thread {
+
+        // BluetoothDevice nesnesi
+        private BluetoothDevice device;
+
+        // BluetoothSocket nesnesi
+        private BluetoothSocket socket;
+
+        // ClientClass yapıcı sınıfı
+        public ClientClass(BluetoothDevice device1) {
+
+            // nesneye device değerine device1'i ata
+            device = device1;
+
+            try {
+                // uuid değerine socket işine ata
+                if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    socket = device.createRfcommSocketToServiceRecord(MY_UUID);
+                }
+
+                // hatayı yakala
+            } catch (IOException e) {
+                // hatayı yazdır
+                e.printStackTrace();
+            }
+        }
+
+        public void run() {
+            try {
+                if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    socket.connect();
+
+                    Message message = Message.obtain();
+
+                    message.what = STATE_CONNECTED;
+
+//                    handler.sendMessage(message);
+//
+//                    sendReceive = new SendReceive(socket);
+//
+//                    sendReceive.start();
+                }
+
+            } catch (IOException e) {
+                e.printStackTrace();
+
+                Message message = Message.obtain();
+
+//                message.what = STATE_CONNECTION_FAILED;
+//
+//                handler.sendMessage(message);
+            }
+        }
+    }
 
 
     private void checkAndRequestPermissions() {
@@ -250,7 +416,113 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+    Handler handler = new Handler(new Handler.Callback() {
+        @SuppressLint("SetTextI18n")
+        @Override
+        public boolean handleMessage(Message msg) {
 
+            if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+
+                switch (msg.what) {
+
+                    // STATE_LISTENING
+                    case STATE_LISTENING:
+
+                        // Listening
+                        status.setText(R.string.listening);
+                        break;
+
+                    // STATE_CONNECTING
+                    case STATE_CONNECTING:
+
+                        // Connecting
+                        status.setText(R.string.connecting);
+                        break;
+
+                    // STATE_CONNECTED
+                    case STATE_CONNECTED:
+
+                        // Connected
+                        status.setText(R.string.connected);
+                        break;
+
+                    // STATE_CONNECTION_FAILED
+                    case STATE_CONNECTION_FAILED:
+
+                        // Connection Failed
+                        status.setText(R.string.failed);
+                        break;
+
+                    // STATE_MESSAGE_RECEIVED
+                    case STATE_MESSAGE_RECEIVED:
+
+                        byte[] readBuffer = (byte[]) msg.obj;
+
+                        String tempMessage = new String(readBuffer, 0, msg.arg1);
+
+                    //    messageBox.setText(tempMessage);
+
+                        break;
+                }
+            }
+            return true;
+        }
+    });
+
+
+    private class SendReceive extends Thread {
+        private final InputStream inputStream;
+
+        private final OutputStream outputStream;
+
+        public SendReceive(BluetoothSocket socket) {
+
+            InputStream tempInput = null;
+
+            OutputStream tempOutput = null;
+
+            try {
+                tempInput = socket.getInputStream();
+
+                tempOutput = socket.getOutputStream();
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            inputStream = tempInput;
+
+            outputStream = tempOutput;
+        }
+
+        public void run() {
+
+            byte[] buffer = new byte[1024];
+
+            int bytes;
+
+            while (true) {
+
+                try {
+                    bytes = inputStream.read(buffer);
+
+                    handler.obtainMessage(STATE_MESSAGE_RECEIVED, bytes, -1, buffer).sendToTarget();
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        public void write(byte[] bytes) {
+            try {
+                outputStream.write(bytes);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
     private void connectToDevice(String deviceAddress) {
 
 

@@ -39,5 +39,7 @@ dependencies {
 
     implementation 'com.google.zxing:core:3.4.1'
     implementation 'com.journeyapps:zxing-android-embedded:4.2.0'
+    implementation 'com.github.harry1453:android-bluetooth-serial:v1.1'
+
 
 }
